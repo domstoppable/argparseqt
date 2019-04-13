@@ -36,9 +36,6 @@ def makeWidget(argument, parent=None):
 		widget.setToolTip(argument.help)
 
 	widget = ResetableWidget(widget, argument.default)
-	#widget = NullableWidget(widget)
-	#makeNullable(widget)
-	#print(widget.blah)
 
 	return widget
 
@@ -50,11 +47,12 @@ class ResetableWidget(QtWidgets.QWidget):
 	def __init__(self, widget, defaultValue):
 		super().__init__(widget.parent())
 		self.widget = widget
+		self.defaultValue = defaultValue
 		self.nullable = not isinstance(widget, QtWidgets.QComboBox)
 		self.nulled = True
 
 		resetButton = QtWidgets.QToolButton(self)
-		resetButton.pressed.connect(lambda: self.setValue(defaultValue))
+		resetButton.pressed.connect(self.reset)
 		resetButton.setText('↶')
 
 		if defaultValue is None:
@@ -89,9 +87,8 @@ class ResetableWidget(QtWidgets.QWidget):
 		else:
 			self.widget.setValue(value)
 
-
-#	def reset(self):
-#		self.widget.setValue(self.defaultValue)
+	def reset(self):
+		self.setValue(self.defaultValue)
 
 class ComboBox(QtWidgets.QComboBox):
 	def __init__(self, values, labels=None, dataType=None, parent=None):
