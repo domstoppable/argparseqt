@@ -73,6 +73,8 @@ class ArgparseListWidget(QtWidgets.QWidget):
 
 		self.groupList.setCurrentRow(0)
 		self.groupList.currentRowChanged.connect(self.widgetStack.setCurrentIndex)
+		if self.groupList.count() == 1:
+			self.groupList.hide()
 
 	def _addGroup(self, name, description):
 		self.groupList.addItem(name)
