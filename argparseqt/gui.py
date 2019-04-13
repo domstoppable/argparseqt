@@ -7,6 +7,7 @@ from qtpy import QtCore, QtWidgets
 
 from . import groupingTools, wrappedWidgets
 
+orphanGroupName = 'Main'
 
 class ArgDialog(QtWidgets.QDialog):
 	''' A simple settings dialog containing a single ArgparseWidget and stardard ok/cancel dialog buttons '''
@@ -59,7 +60,7 @@ class ArgparseListWidget(QtWidgets.QWidget):
 
 		for group,arguments in self.groupedParser.items():
 			if group.title in ['positional arguments', 'optional arguments']:
-				groupName = 'Main'
+				groupName = orphanGroupName
 				if self.widgetStack.count() > 0:
 					groupWidget = self.widgetStack.widget(0)
 				else:
@@ -85,12 +86,17 @@ class ArgparseListWidget(QtWidgets.QWidget):
 			groupName = self.groupList.item(i).text()
 			if groupName in values:
 				self.widgetStack.widget(i).setValues(values[groupName])
+			else:
+				self.widgetStack.widget(i).setValues(values)
 
 	def getValues(self):
 		settings = {}
 		for i in range(self.widgetStack.count()):
 			groupName = self.groupList.item(i).text()
-			settings[groupName] = self.widgetStack.widget(i).getValues()
+			if groupName == orphanGroupName:
+				settings = {**settings, **self.widgetStack.widget(i).getValues()}
+			else:
+				settings[groupName] = self.widgetStack.widget(i).getValues()
 
 		return settings
 

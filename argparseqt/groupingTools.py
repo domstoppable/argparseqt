@@ -17,20 +17,23 @@ def organizeIntoGroups(parser):
 	return groups
 
 def parseIntoGroups(parser):
-	''' Returns a dict where keys are argparse group names and keys are dicts of name/value pairs '''
+	''' Returns a dict where keys are argparse group names and keys are dicts of name/value pairs
+	
+		Arguments that do not belong to a group will be stored in the top-level dict
+	'''
 	args = vars(parser.parse_args())
 	groups = {}
 
 	for group in parser._action_groups:
 		if group.title in ['positional arguments', 'optional arguments']:
-			groupName = ''
+			groupDict = groups
 		else:
 			groupName = group.title
-
-		groups[groupName] = {}
+			groupDict = {}
+			groups[groupName] = groupDict
 
 		for action in group._group_actions:
 			if type(action) != argparse._HelpAction:
-				groups[groupName][action.dest] = args[action.dest]
+				groupDict[action.dest] = args[action.dest]
 
 	return groups
