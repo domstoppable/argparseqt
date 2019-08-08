@@ -21,7 +21,7 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 
 setup(
 	name='argparseqt',
-	version='0.2.2',
+	version='0.2.3',
 	description='An easy way to make Qt GUIs using the argparse standard module',
 	url='https://github.com/domstoppable/argparseqt',
 	author='Dominic Canare',
