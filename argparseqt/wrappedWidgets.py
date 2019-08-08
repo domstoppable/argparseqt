@@ -4,8 +4,9 @@
 import sys
 import argparse
 
-from qtpy import QtCore, QtWidgets
+from qtpy import QtCore, QtGui, QtWidgets
 
+from . import typeHelpers
 
 def makeWidget(argument, parent=None):
 	''' Creates and returns a data type-appropriate wrapped-widget
@@ -28,6 +29,12 @@ def makeWidget(argument, parent=None):
 
 	elif argument.type == float:
 		widget = DoubleSpinBox(parent)
+
+	elif argument.type == typeHelpers.rgb:
+		widget = ColorWidget(hasAlpha=False, parent=parent)
+
+	elif argument.type == typeHelpers.rgba:
+		widget = ColorWidget(hasAlpha=True, parent=parent)
 
 	else:
 		widget = LineEdit(parent)
@@ -129,39 +136,6 @@ class BoolComboBox(ComboBox):
 				self.setCurrentIndex(i)
 				break
 
-'''
-class NullableWidget():
-	def __init__(self):
-		self.setToNone = True
-		self.valueChanged.connect(self.clearNone)
-
-		# Can't monkeypatch the value function until *after* construction
-		def override():
-			self._value = self.value
-			self.value = self._valueOverride
-
-			self._setValue = self.setValue
-			self.setValue = self._setValueOverride
-
-		QtCore.QTimer.singleShot(1, override)
-
-	def clearNone(self):
-		self.setToNone = False
-
-	def _valueOverride(self):
-		if self.setToNone:
-			return None
-		else:
-			return self._value()
-
-	def _setValueOverride(self, value):
-		if value is None:
-			self.setToNone = True
-			self.clear()
-		else:
-			self()._setValue(val)
-'''
-
 class LineEdit(QtWidgets.QLineEdit):
 	def value(self):
 		return self.text()
@@ -198,63 +172,54 @@ class DoubleSpinBox(QtWidgets.QDoubleSpinBox):
 		else:
 			super().setValue(val)
 
-def makeNullable(widget):
-	def clearNull():
-		widget.nulled = False
+class ColorWidget(QtWidgets.QPushButton):
+	valueChanged = QtCore.Signal(tuple)
+
+	def __init__(self, hasAlpha=True, parent=None):
+		super().__init__(parent)
+
+		self.hasAlpha = hasAlpha
+		self.dialog = None
+		self.clicked.connect(self.onClick)
+
+		self.clear()
+
+	def onClick(self):
+		if self.dialog is None:
+			self.dialog = QtWidgets.QColorDialog()
+			self.dialog.setCurrentColor(QtGui.QColor(*self.colorValue))
+
+		self.dialog.setOption(self.dialog.ColorDialogOption.ShowAlphaChannel, self.hasAlpha)
+		self.dialog.exec_()
+
+		if self.dialog.result() == QtWidgets.QDialog.Accepted:
+			color = self.dialog.selectedColor()
+			value = [color.red(), color.green(), color.blue()]
+			if self.hasAlpha:
+				value.append(color.alpha())
+
+			self.setValue(value)
+			self.valueChanged.emit(value)
 
 	def value(self):
-		if self.nulled:
-			return None
+		return self.colorValue
+
+	def setValue(self, val):
+		if isinstance(val, str):
+			if self.hasAlpha:
+				val = typeHelpers.rgba(val)
+			else:
+				val = typeHelpers.rgb(val)
+
+		self.colorValue = tuple(val)
+		self.setText(' %s' % (self.colorValue,))
+
+		pixmap = QtGui.QPixmap(self.height(), self.height())
+		pixmap.fill(QtGui.QColor(*val))
+		self.setIcon(QtGui.QIcon(pixmap))
+
+	def clear(self):
+		if self.hasAlpha:
+			self.setValue((0, 0, 0, 0))
 		else:
-			return self._value()
-
-	def setValue(self, value):
-		if value is None:
-			self.setToNone = True
-			self.clear()
-		else:
-			self()._setValue(val)
-
-
-	widget.nulled = True
-	if hasattr(widget, 'valueChanged'):
-		widget.valueChanged.connect(clearNull)
-
-	widget._value = widget.value
-	widget._setValue = widget.setValue
-
-	widget.value = value
-	widget.setValue = setValue
-
-class NullableWidget(QtWidgets.QWidget):
-	def __init__(self, widget):
-		super().__init__(widget.parent())
-
-		self.widget = widget
-		self.nulled = True
-
-		if hasattr(widget, 'valueChanged'):
-			widget.valueChanged.connect(self.clearNull)
-		elif hasattr(widget, 'textChanged'):
-			widget.textChanged.connect(self.clearNull)
-
-		self.setLayout(QtWidgets.QHBoxLayout())
-		self.layout().addWidget(self.widget)
-
-	def clearNull(self):
-		self.nulled = False
-
-	def value(self):
-		if self.nulled:
-			return None
-		else:
-			return self.widget.value()
-
-	def setValue(self, value):
-		if value is None:
-			self.nulled = True
-			self.widget.clear()
-		else:
-			self.widget.setValue(value)
-
-
+			self.setValue((0, 0, 0))
