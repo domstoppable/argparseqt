@@ -63,14 +63,14 @@ class ResetableWidget(QtWidgets.QWidget):
 		self.setLayout(QtWidgets.QHBoxLayout())
 		self.layout().addWidget(widget)
 		self.layout().addWidget(resetButton)
-		
+
 		self.layout().setContentsMargins(0, 0, 0, 0)
-		
+
 		if hasattr(widget, 'valueChanged'):
 			widget.valueChanged.connect(self.clearNull)
 		elif hasattr(widget, 'textChanged'):
 			widget.textChanged.connect(self.clearNull)
-		
+
 	def clearNull(self):
 		self.nulled = False
 
@@ -86,6 +86,7 @@ class ResetableWidget(QtWidgets.QWidget):
 			self.nulled = True
 		else:
 			self.widget.setValue(value)
+			self.nulled = False
 
 	def reset(self):
 		self.setValue(self.defaultValue)
@@ -189,7 +190,7 @@ class DoubleSpinBox(QtWidgets.QDoubleSpinBox):
 
 		self.setRange(-2**30, 2**30)
 		self.setDecimals(15)
-	
+
 	def setValue(self, val):
 		if val is None:
 			self.setToNone = True
@@ -218,7 +219,7 @@ def makeNullable(widget):
 	widget.nulled = True
 	if hasattr(widget, 'valueChanged'):
 		widget.valueChanged.connect(clearNull)
-	
+
 	widget._value = widget.value
 	widget._setValue = widget.setValue
 
