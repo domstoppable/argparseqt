@@ -9,11 +9,15 @@ from . import groupingTools, wrappedWidgets
 
 class ArgDialog(QtWidgets.QDialog):
 	''' A simple settings dialog containing a single ArgparseWidget and stardard ok/cancel dialog buttons '''
+
+	valueAdjusted = QtCore.Signal()
+
 	def __init__(self, argParser, orphanGroupName='Main', parent=None):
 		super().__init__(parent)
 
 		self.argParser = argParser
 		self.argparseWidget = ArgparseListWidget(self.argParser, orphanGroupName)
+		self.argparseWidget.valueAdjusted.connect(self.valueAdjusted.emit)
 
 		self.setWindowTitle('Settings')
 
@@ -42,6 +46,9 @@ class ArgparseListWidget(QtWidgets.QWidget):
 
 		Clicking a group in the list on the left will display the settings for that group on the right
 	'''
+
+	valueAdjusted = QtCore.Signal()
+
 	def __init__(self, argParser, orphanGroupName, parent=None):
 		super().__init__(parent)
 
@@ -79,6 +86,7 @@ class ArgparseListWidget(QtWidgets.QWidget):
 	def _addGroup(self, name, description):
 		self.groupList.addItem(name)
 		groupWidget = ArgGroupWidget(name, description=description)
+		groupWidget.valueAdjusted.connect(self.valueAdjusted.emit)
 		self.widgetStack.addWidget(groupWidget)
 
 		return groupWidget
@@ -107,6 +115,9 @@ class ArgGroupWidget(QtWidgets.QWidget):
 
 		This widget can be embedded into other containers if you wanted, say, a tabbed-based view
 	'''
+
+	valueAdjusted = QtCore.Signal()
+
 	def __init__(self, name, arguments=[], description=None, parent=None):
 		super().__init__(parent)
 		self.name = name
@@ -128,13 +139,17 @@ class ArgGroupWidget(QtWidgets.QWidget):
 
 		self.addArguments(arguments)
 
+	def onValueChanged(self, _):
+		self.valueAdjusted.emit()
+
 	def addArguments(self, arguments):
 		for argument in arguments:
 			widget = wrappedWidgets.makeWidget(argument, self)
+			widget.valueChanged.connect(self.onValueChanged)
 
-			help = argument.help
-			widget.setToolTip(help)
-			widget.setWhatsThis(help)
+			helpText = argument.help
+			widget.setToolTip(helpText)
+			widget.setWhatsThis(helpText)
 
 			self.form.layout().addRow(argument.dest, widget)
 

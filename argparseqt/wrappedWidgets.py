@@ -75,8 +75,12 @@ class ResetableWidget(QtWidgets.QWidget):
 
 		if hasattr(widget, 'valueChanged'):
 			widget.valueChanged.connect(self.clearNull)
+			self.valueChanged = widget.valueChanged
 		elif hasattr(widget, 'textChanged'):
 			widget.textChanged.connect(self.clearNull)
+			self.valueChanged = widget.textChanged
+		elif hasattr(widget, 'currentTextChanged'):
+			self.valueChanged = widget.currentTextChanged
 
 	def clearNull(self):
 		self.nulled = False
@@ -188,18 +192,24 @@ class ColorWidget(QtWidgets.QPushButton):
 		if self.dialog is None:
 			self.dialog = QtWidgets.QColorDialog()
 			self.dialog.setCurrentColor(QtGui.QColor(*self.colorValue))
+			self.dialog.currentColorChanged.connect(self.onColorAdjusted)
 
 		self.dialog.setOption(self.dialog.ColorDialogOption.ShowAlphaChannel, self.hasAlpha)
+
+		preservedValue = self.colorValue
 		self.dialog.exec_()
 
-		if self.dialog.result() == QtWidgets.QDialog.Accepted:
-			color = self.dialog.selectedColor()
-			value = [color.red(), color.green(), color.blue()]
-			if self.hasAlpha:
-				value.append(color.alpha())
+		if self.dialog.result() != QtWidgets.QDialog.Accepted:
+			self.setValue(preservedValue)
+			self.valueChanged.emit(preservedValue)
 
-			self.setValue(value)
-			self.valueChanged.emit(value)
+	def toTuple(self):
+		color = self.dialog.currentColor()
+		value = [color.red(), color.green(), color.blue()]
+		if self.hasAlpha:
+			value.append(color.alpha())
+
+		return tuple(value)
 
 	def value(self):
 		return self.colorValue
@@ -223,3 +233,8 @@ class ColorWidget(QtWidgets.QPushButton):
 			self.setValue((0, 0, 0, 0))
 		else:
 			self.setValue((0, 0, 0))
+
+	def onColorAdjusted(self, color):
+		value = self.toTuple()
+		self.setValue(value)
+		self.valueChanged.emit(value)
