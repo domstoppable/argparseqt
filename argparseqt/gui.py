@@ -7,15 +7,13 @@ from qtpy import QtCore, QtWidgets
 
 from . import groupingTools, wrappedWidgets
 
-orphanGroupName = 'Main'
-
 class ArgDialog(QtWidgets.QDialog):
 	''' A simple settings dialog containing a single ArgparseWidget and stardard ok/cancel dialog buttons '''
-	def __init__(self, argParser, parent=None):
+	def __init__(self, argParser, orphanGroupName='Main', parent=None):
 		super().__init__(parent)
 
 		self.argParser = argParser
-		self.argparseWidget = ArgparseListWidget(self.argParser)
+		self.argparseWidget = ArgparseListWidget(self.argParser, orphanGroupName)
 
 		self.setWindowTitle('Settings')
 
@@ -44,7 +42,7 @@ class ArgparseListWidget(QtWidgets.QWidget):
 
 		Clicking a group in the list on the left will display the settings for that group on the right
 	'''
-	def __init__(self, argParser, parent=None):
+	def __init__(self, argParser, orphanGroupName, parent=None):
 		super().__init__(parent)
 
 		self.argParser = argParser
@@ -58,9 +56,11 @@ class ArgparseListWidget(QtWidgets.QWidget):
 		self.layout().addWidget(self.groupList)
 		self.layout().addWidget(self.widgetStack, stretch=1)
 
+		self.orphanGroupname = orphanGroupName
+
 		for group,arguments in self.groupedParser.items():
 			if group.title in ['positional arguments', 'optional arguments']:
-				groupName = orphanGroupName
+				groupName = self.orphanGroupname
 				if self.widgetStack.count() > 0:
 					groupWidget = self.widgetStack.widget(0)
 				else:
@@ -82,7 +82,7 @@ class ArgparseListWidget(QtWidgets.QWidget):
 		self.widgetStack.addWidget(groupWidget)
 
 		return groupWidget
-	
+
 	def setValues(self, values):
 		for i in range(self.widgetStack.count()):
 			groupName = self.groupList.item(i).text()
@@ -95,7 +95,7 @@ class ArgparseListWidget(QtWidgets.QWidget):
 		settings = {}
 		for i in range(self.widgetStack.count()):
 			groupName = self.groupList.item(i).text()
-			if groupName == orphanGroupName:
+			if groupName == self.orphanGroupname:
 				settings = {**settings, **self.widgetStack.widget(i).getValues()}
 			else:
 				settings[groupName] = self.widgetStack.widget(i).getValues()
@@ -104,7 +104,7 @@ class ArgparseListWidget(QtWidgets.QWidget):
 
 class ArgGroupWidget(QtWidgets.QWidget):
 	''' Container for a group of argument widgets
-	
+
 		This widget can be embedded into other containers if you wanted, say, a tabbed-based view
 	'''
 	def __init__(self, name, arguments=[], description=None, parent=None):
@@ -125,7 +125,7 @@ class ArgGroupWidget(QtWidgets.QWidget):
 		text.setWordWrap(True)
 		self.layout().addWidget(text)
 		self.layout().addWidget(self.form)
-		
+
 		self.addArguments(arguments)
 
 	def addArguments(self, arguments):
@@ -150,7 +150,7 @@ class ArgGroupWidget(QtWidgets.QWidget):
 		for row in range(self.form.layout().rowCount()):
 			itemName = self.form.layout().itemAt(row, QtWidgets.QFormLayout.LabelRole).widget().text()
 			itemValue = self.form.layout().itemAt(row, QtWidgets.QFormLayout.FieldRole).widget().value()
-			
+
 			values[itemName] = itemValue
-		
+
 		return values
