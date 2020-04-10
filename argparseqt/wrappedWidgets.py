@@ -2,6 +2,7 @@
 ''' Widgets with a universal api for getting/setting convenience '''
 
 import sys
+import pathlib
 import argparse
 
 from qtpy import QtCore, QtGui, QtWidgets
@@ -35,6 +36,9 @@ def makeWidget(argument, parent=None):
 
 	elif argument.type == typeHelpers.rgba:
 		widget = ColorWidget(hasAlpha=True, parent=parent)
+
+	elif argument.type == pathlib.Path:
+		widget = FileChooser(parent)
 
 	else:
 		widget = LineEdit(parent)
@@ -101,6 +105,36 @@ class ResetableWidget(QtWidgets.QWidget):
 
 	def reset(self):
 		self.setValue(self.defaultValue)
+
+class FileChooser(QtWidgets.QWidget):
+	valueChanged = QtCore.Signal(pathlib.Path)
+
+	def __init__(self, parent=None):
+		super().__init__(parent)
+		self.setLayout(QtWidgets.QHBoxLayout())
+		self.textBox = QtWidgets.QLineEdit()
+		self.browseButton = QtWidgets.QToolButton()
+		self.browseButton.setText('…')
+
+		self.layout().addWidget(self.textBox)
+		self.layout().addWidget(self.browseButton)
+
+		self.browseButton.clicked.connect(self._browse)
+
+	def _browse(self):
+		selectedFile = QtWidgets.QFileDialog.getOpenFileName(None, 'Open file', str(self.value().parent))
+		selectedFile = selectedFile[0]
+		if selectedFile is not None and selectedFile != '':
+			selectedFile = pathlib.Path(selectedFile)
+
+			self.setValue(selectedFile)
+			self.valueChanged.emit(selectedFile)
+
+	def value(self):
+		return pathlib.Path(self.textBox.text())
+
+	def setValue(self, val):
+		self.textBox.setText(str(val))
 
 class ComboBox(QtWidgets.QComboBox):
 	def __init__(self, values, labels=None, dataType=None, parent=None):
