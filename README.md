@@ -22,6 +22,9 @@ Requires:
 ## Usage
 ### Quick start
 ```python
+import argparse
+import argparseqt.gui
+
 parser = argparse.ArgumentParser(description='Main settings')
 parser.add_argument('--storeConst', action='store_const', const=999)
 
@@ -30,7 +33,7 @@ textSettings.add_argument('--freetext', type=str, default='Enter freetext here',
 textSettings.add_argument('--pickText', default='I choo-choo-choose you', choices=['Bee mine', 'I choo-choo-choose you'], help='Choose one of these')
 
 app = QtWidgets.QApplication()
-dialog = argparsegui.gui.ArgDialog(parser)
+dialog = argparseqt.gui.ArgDialog(parser)
 dialog.exec_()
 
 if dialog.result() == QtWidgets.QDialog.Accepted:
