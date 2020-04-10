@@ -47,6 +47,7 @@ def makeWidget(argument, parent=None):
 		widget.setToolTip(argument.help)
 
 	widget = ResetableWidget(widget, argument.default)
+	widget.setValue(argument.default)
 
 	return widget
 
