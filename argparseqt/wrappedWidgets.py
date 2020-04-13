@@ -4,50 +4,76 @@
 import sys
 import pathlib
 import argparse
+import typing
+
+try:
+	import serial.tools.list_ports
+except ImportError:
+	pass
 
 from qtpy import QtCore, QtGui, QtWidgets
 
 from . import typeHelpers
 
-def makeWidget(argument, parent=None):
+def makeWidget(argumentOrType, parent=None, defaultValue=None, choices=None, helpText=None):
 	''' Creates and returns a data type-appropriate wrapped-widget
 
 		Arguments with finite choices (including booleans) configured will display as a combo box
 		Numeric arguments will display with a spin box
 		Text and arguments with no specified data type will display with line edit
 	'''
-	if type(argument) == argparse._StoreConstAction:
-		widget = ComboBox([argument.const], [argument.const], parent)
+	widget = None
+	if isinstance(argumentOrType, argparse.Action):
+		argument = argumentOrType
+		dataType = argument.type
+		defaultValue = argument.default
+		choices = choices if choices is not None else argument.choices
 
-	elif type(argument) in [argparse._StoreTrueAction, argparse._StoreFalseAction]:
-		widget = ComboBox([True, False], parent=parent)
+		if helpText is None and argument.help is not None:
+			helpText = argument.help
 
-	elif argument.choices is not None:
-		widget = ComboBox(argument.choices, parent=parent)
+		if type(argument) == argparse._StoreConstAction:
+			widget = ComboBox([argument.const], [argument.const], parent)
 
-	elif argument.type == int:
-		widget = SpinBox(parent)
-
-	elif argument.type == float:
-		widget = DoubleSpinBox(parent)
-
-	elif argument.type == typeHelpers.rgb:
-		widget = ColorWidget(hasAlpha=False, parent=parent)
-
-	elif argument.type == typeHelpers.rgba:
-		widget = ColorWidget(hasAlpha=True, parent=parent)
-
-	elif argument.type == pathlib.Path:
-		widget = FileChooser(parent)
+		elif type(argument) in [argparse._StoreTrueAction, argparse._StoreFalseAction]:
+			widget = ComboBox([True, False], parent=parent)
 
 	else:
-		widget = LineEdit(parent)
+		dataType = argumentOrType
 
-	if argument.help is not None:
-		widget.setToolTip(argument.help)
+	if widget is None:
+		if choices is not None:
+			widget = ComboBox(choices, parent=parent)
 
-	widget = ResetableWidget(widget, argument.default)
-	widget.setValue(argument.default)
+		elif dataType == int:
+			widget = SpinBox(parent)
+
+		elif dataType == float:
+			widget = DoubleSpinBox(parent)
+
+		elif dataType == typeHelpers.rgb:
+			widget = ColorWidget(hasAlpha=False, parent=parent)
+
+		elif dataType == typeHelpers.rgba:
+			widget = ColorWidget(hasAlpha=True, parent=parent)
+
+		elif dataType == pathlib.Path:
+			widget = FileChooser(parent)
+
+		elif 'serial' in sys.modules and dataType == typeHelpers.Serial:
+			widget = SerialPortChooser(parent)
+
+		elif dataType == list or typing.get_origin(dataType) == list:
+			widget = ListWidget(dataType, parent)
+
+		else:
+			widget = LineEdit(parent)
+
+	if helpText is not None:
+		widget.setToolTip(helpText)
+
+	widget = ResetableWidget(widget, defaultValue)
+	widget.setValue(defaultValue)
 
 	return widget
 
@@ -63,7 +89,16 @@ class ResetableWidget(QtWidgets.QWidget):
 		self.nullable = not isinstance(widget, QtWidgets.QComboBox)
 		self.nulled = True
 
+		self.setSizePolicy(
+			QtWidgets.QSizePolicy.Preferred,
+			QtWidgets.QSizePolicy.Fixed,
+		)
+
 		resetButton = QtWidgets.QToolButton(self)
+		resetButton.setSizePolicy(
+			QtWidgets.QSizePolicy.Fixed,
+			QtWidgets.QSizePolicy.MinimumExpanding,
+		)
 		resetButton.pressed.connect(self.reset)
 		resetButton.setText('↶')
 
@@ -73,10 +108,9 @@ class ResetableWidget(QtWidgets.QWidget):
 			resetButton.setToolTip('Set default: ' + str(defaultValue))
 
 		self.setLayout(QtWidgets.QHBoxLayout())
+		self.layout().setContentsMargins(0, 0, 0, 0)
 		self.layout().addWidget(widget)
 		self.layout().addWidget(resetButton)
-
-		self.layout().setContentsMargins(0, 0, 0, 0)
 
 		if hasattr(widget, 'valueChanged'):
 			widget.valueChanged.connect(self.clearNull)
@@ -86,6 +120,9 @@ class ResetableWidget(QtWidgets.QWidget):
 			self.valueChanged = widget.textChanged
 		elif hasattr(widget, 'currentTextChanged'):
 			self.valueChanged = widget.currentTextChanged
+
+		if not hasattr(widget, 'clearValue') and hasattr(widget, 'clear'):
+			widget.clearValue = widget.clear
 
 	def clearNull(self):
 		self.nulled = False
@@ -98,7 +135,7 @@ class ResetableWidget(QtWidgets.QWidget):
 
 	def setValue(self, value):
 		if self.nullable and value is None:
-			self.widget.clear()
+			self.widget.clearValue()
 			self.nulled = True
 		else:
 			self.widget.setValue(value)
@@ -107,12 +144,112 @@ class ResetableWidget(QtWidgets.QWidget):
 	def reset(self):
 		self.setValue(self.defaultValue)
 
+	def clearValue(self):
+		self.setValue(None)
+
+class ListWidgetItem(QtWidgets.QWidget):
+	def __init__(self, widget, parent=None):
+		super().__init__(parent)
+		self.widget = widget
+
+		self.abandonButton = QtWidgets.QToolButton(self)
+		self.abandonButton.setText('🗑️')
+		self.abandonButton.pressed.connect(self.abandon)
+		self.abandonButton.setSizePolicy(
+			QtWidgets.QSizePolicy.Fixed,
+			QtWidgets.QSizePolicy.MinimumExpanding,
+		)
+
+		self.setLayout(QtWidgets.QHBoxLayout())
+		self.layout().setContentsMargins(0, 0, 0, 0)
+
+		self.layout().addWidget(self.abandonButton)
+		self.layout().addWidget(self.widget)
+
+		patches = ['value', 'setValue', 'clearValue', 'valueChanged']
+		for prop in patches:
+			setattr(self, prop, getattr(self.widget, prop))
+
+	def abandon(self):
+		parentLayout = self.parentWidget().layout()
+		idx = parentLayout.indexOf(self)
+		parentLayout.takeAt(idx)
+		self.setParent(None)
+
+class ListWidget(QtWidgets.QWidget):
+	valueChanged = QtCore.Signal(list)
+
+	def __init__(self, dataType, parent=None):
+		super().__init__(parent)
+
+		self.dataType = dataType
+		self.subDataType = typing.get_args(self.dataType)
+		if len(self.subDataType) == 0:
+			self.subDataType = str
+		else:
+			self.subDataType = self.subDataType[0]
+
+		self.childrenContainer = QtWidgets.QWidget(self)
+		self.childrenContainer.setLayout(QtWidgets.QVBoxLayout())
+		self.childrenContainer.layout().setSpacing(int(self.childrenContainer.layout().spacing()/2))
+		self.childrenContainer.layout().setContentsMargins(0, 0, 0, 0)
+
+		self.addItemButton = QtWidgets.QToolButton(self)
+		self.addItemButton.setText('➕ Add item')
+		self.addItemButton.clicked.connect(self._addKid)
+
+		self.setLayout(QtWidgets.QVBoxLayout())
+		self.layout().setSpacing(0)
+		self.layout().setContentsMargins(0, 0, 0, 0)
+		self.layout().addWidget(self.childrenContainer)
+		self.layout().addWidget(self.addItemButton)
+
+	def _addKid(self, v=None):
+		listWidgetItem = ListWidgetItem(makeWidget(self.subDataType, self.childrenContainer), self.childrenContainer)
+		listWidgetItem.valueChanged.connect(self.onChildValueChanged)
+
+		self.childrenContainer.layout().addWidget(listWidgetItem)
+
+		return listWidgetItem
+
+	def _abandonChildren(self):
+		layout = self.childrenContainer.layout()
+		while layout.count() > 0:
+			w = layout.takeAt(0)
+			w.widget().setParent(None)
+
+	def clearValue(self):
+		self._abandonChildren()
+
+	def onChildValueChanged(self):
+		self.valueChanged.emit(self.value())
+
+	def value(self):
+		v = []
+		layout = self.childrenContainer.layout()
+		for idx in range(layout.count()):
+			widget = layout.itemAt(idx).widget()
+			v.append(widget.value())
+
+		return v
+
+	def setValue(self, values):
+		self._abandonChildren()
+		for v in values:
+			w = self._addKid(v)
+			w.setValue(v)
+
+
 class FileChooser(QtWidgets.QWidget):
 	valueChanged = QtCore.Signal(pathlib.Path)
 
 	def __init__(self, parent=None):
 		super().__init__(parent)
+
 		self.setLayout(QtWidgets.QHBoxLayout())
+		self.layout().setSpacing(0)
+		self.layout().setContentsMargins(0, 0, 0, 0)
+
 		self.textBox = QtWidgets.QLineEdit()
 		self.browseButton = QtWidgets.QToolButton()
 		self.browseButton.setText('…')
@@ -121,6 +258,8 @@ class FileChooser(QtWidgets.QWidget):
 		self.layout().addWidget(self.browseButton)
 
 		self.browseButton.clicked.connect(self._browse)
+
+		self.clear = self.textBox.clear
 
 	def _browse(self):
 		selectedFile = QtWidgets.QFileDialog.getOpenFileName(None, 'Open file', str(self.value().parent))
@@ -138,9 +277,14 @@ class FileChooser(QtWidgets.QWidget):
 		self.textBox.setText(str(val))
 
 class ComboBox(QtWidgets.QComboBox):
-	def __init__(self, values, labels=None, dataType=None, parent=None):
+	def __init__(self, values, labels=None, parent=None):
 		super().__init__(parent)
-		self.dataType = dataType
+
+		self.setOptions(values, labels)
+		self.valueChanged = self.currentTextChanged
+
+	def setOptions(self, values, labels=None):
+		self.clear()
 
 		if labels is None:
 			labels = values
@@ -150,6 +294,9 @@ class ComboBox(QtWidgets.QComboBox):
 		for i,value in enumerate(values):
 			self.addItem(str(labels[i]), value)
 
+	def clearValue(self):
+		self.setValue(None)
+
 	def value(self):
 		return self.currentData()
 
@@ -158,6 +305,49 @@ class ComboBox(QtWidgets.QComboBox):
 			if val == self.itemData(i):
 				self.setCurrentIndex(i)
 				break
+
+class SerialPortChooser(QtWidgets.QWidget):
+	def __init__(self, parent=None):
+		super().__init__(parent)
+
+		self.setLayout(QtWidgets.QHBoxLayout())
+		self.layout().setSpacing(0)
+		self.layout().setContentsMargins(0, 0, 0, 0)
+
+		devices, labels = self.getPortsAndLabels()
+		self.combobox = ComboBox(devices, labels, parent=self)
+
+		self.refreshButton = QtWidgets.QToolButton(self)
+		self.refreshButton.setText('🔍')
+		self.refreshButton.setToolTip('Refresh list')
+		self.refreshButton.clicked.connect(self.refreshPorts)
+
+		self.layout().addWidget(self.combobox)
+		self.layout().addWidget(self.refreshButton)
+
+		self.clearValue = self.combobox.clearValue
+		self.valueChanged = self.combobox.valueChanged
+		self.value = self.combobox.value
+		self.setValue = self.combobox.setValue
+		self.currentTextChanged = self.combobox.currentTextChanged
+		self.setFocus = self.combobox.setFocus
+
+	def getPortsAndLabels(self):
+		deviceList = []
+		nameList = []
+
+		for portInfo in serial.tools.list_ports.comports():
+			deviceList.append(portInfo.device)
+			nameList.append(f'{portInfo.description} ({portInfo.device})')
+
+		return deviceList, nameList
+
+	def refreshPorts(self):
+		devices, labels = self.getPortsAndLabels()
+
+		self.combobox.setOptions(devices, labels)
+		self.combobox.setFocus()
+		self.combobox.showPopup()
 
 class BoolComboBox(ComboBox):
 	def __init__(self, trueLabel='Enabled', falseLabel='disabled', parent=None):
@@ -221,7 +411,7 @@ class ColorWidget(QtWidgets.QPushButton):
 		self.dialog = None
 		self.clicked.connect(self.onClick)
 
-		self.clear()
+		self.clearValue()
 
 	def onClick(self):
 		if self.dialog is None:
@@ -263,7 +453,7 @@ class ColorWidget(QtWidgets.QPushButton):
 		pixmap.fill(QtGui.QColor(*val))
 		self.setIcon(QtGui.QIcon(pixmap))
 
-	def clear(self):
+	def clearValue(self):
 		if self.hasAlpha:
 			self.setValue((0, 0, 0, 0))
 		else:

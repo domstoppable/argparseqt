@@ -2,6 +2,8 @@
 ''' An example of how to use argparseqt with the standard argparse module '''
 
 import argparse
+import pathlib
+import typing
 
 from qtpy import QtCore, QtWidgets
 
@@ -32,6 +34,22 @@ def runDemo():
 	exoticSettings = parser.add_argument_group('Exotic types', description='Fancy data types')
 	exoticSettings.add_argument('--rgb', type=argparseqt.typeHelpers.rgb)
 	exoticSettings.add_argument('--rgba', type=argparseqt.typeHelpers.rgba)
+	exoticSettings.add_argument('--path', type=pathlib.Path, default=pathlib.Path.home() / 'file.txt')
+
+	try:
+		import serial
+		exoticSettings.add_argument('--serialPort', type=argparseqt.typeHelpers.Serial)
+	except ImportError:
+		pass
+
+	listTypes = parser.add_argument_group('List types', description='Lists of types')
+	listTypes.add_argument('--textList', type=typing.List, default=['Hello', 'world!'])
+	listTypes.add_argument('--intList', type=typing.List[int])
+	listTypes.add_argument('--floatList', type=typing.List[float])
+	listTypes.add_argument('--boolList', type=typing.List[bool])
+	listTypes.add_argument('--colorList', type=typing.List[argparseqt.typeHelpers.rgba])
+	listTypes.add_argument('--pathList', type=typing.List[pathlib.Path])
+	listTypes.add_argument('--ListList', type=typing.List[typing.List], default=[['1a', '1b', '1c'], ['2a', '2b', '2c']])
 
 	# Now make it a GUI
 	app = QtWidgets.QApplication()

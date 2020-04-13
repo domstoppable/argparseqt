@@ -1,5 +1,8 @@
 import argparse
 
+class Serial(str):
+	pass
+
 def rgb(val):
 	if len(val) != 6:
 		raise argparse.ArgumentTypeError('Expected 6 characters but received "%s"' % val)
