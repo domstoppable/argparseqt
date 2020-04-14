@@ -36,7 +36,7 @@ def makeWidget(argumentOrType, parent=None, defaultValue=None, choices=None, hel
 			widget = ComboBox([argument.const], [argument.const], parent)
 
 		elif type(argument) in [argparse._StoreTrueAction, argparse._StoreFalseAction]:
-			widget = ComboBox([True, False], parent=parent)
+			widget = BoolSelector(parent=parent)
 
 	else:
 		dataType = argumentOrType
@@ -50,6 +50,9 @@ def makeWidget(argumentOrType, parent=None, defaultValue=None, choices=None, hel
 
 		elif dataType == float:
 			widget = DoubleSpinBox(parent)
+
+		elif dataType == bool:
+			widget = BoolSelector(parent=parent)
 
 		elif dataType == typeHelpers.rgb:
 			widget = ColorWidget(hasAlpha=False, parent=parent)
@@ -239,7 +242,6 @@ class ListWidget(QtWidgets.QWidget):
 			w = self._addKid(v)
 			w.setValue(v)
 
-
 class FileChooser(QtWidgets.QWidget):
 	valueChanged = QtCore.Signal(pathlib.Path)
 
@@ -349,21 +351,13 @@ class SerialPortChooser(QtWidgets.QWidget):
 		self.combobox.setFocus()
 		self.combobox.showPopup()
 
-class BoolComboBox(ComboBox):
-	def __init__(self, trueLabel='Enabled', falseLabel='disabled', parent=None):
-		self.labelValueMap = {
-			trueLabel: True,
-			falseLabel: False
-		}
-
-	def value(self):
-		return self.labelValueMap[self.currentText()]
-
-	def setValue(self, val):
-		for i in range(self.count()):
-			if str(val) == self.labelValueMap[self.itemText(i)]:
-				self.setCurrentIndex(i)
-				break
+class BoolSelector(ComboBox):
+	def __init__(self, trueLabel='True', falseLabel='False', parent=None):
+		super().__init__(
+			values=[True, False],
+			labels=[trueLabel, falseLabel],
+			parent=parent
+		)
 
 class LineEdit(QtWidgets.QLineEdit):
 	def value(self):
