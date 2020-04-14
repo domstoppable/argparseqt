@@ -46,10 +46,10 @@ def makeWidget(argumentOrType, parent=None, defaultValue=None, choices=None, hel
 			widget = ComboBox(choices, parent=parent)
 
 		elif dataType == int:
-			widget = SpinBox(parent)
+			widget = SpinBox(parent=parent)
 
 		elif dataType == float:
-			widget = DoubleSpinBox(parent)
+			widget = DoubleSpinBox(parent=parent)
 
 		elif dataType == bool:
 			widget = BoolSelector(parent=parent)
@@ -367,11 +367,19 @@ class LineEdit(QtWidgets.QLineEdit):
 		self.setText(str(val))
 
 class SpinBox(QtWidgets.QSpinBox):
-	def __init__(self, parent=None):
-		QtWidgets.QSpinBox.__init__(self, parent)
-		#ClearableSpinBox.__init__(self)
+	minimum = -2**30
+	maximum = 2**30
 
-		self.setRange(-2**30, 2**30)
+	def __init__(self, minimum=None, maximum=None, parent=None):
+		super().__init__(parent)
+
+		minimum = minimum or SpinBox.minimum
+		if minimum is not None:
+			self.setMinimum(minimum)
+
+		maximum = maximum or SpinBox.maximum
+		if maximum is not None:
+			self.setMaximum(maximum)
 
 	def setValue(self, val):
 		if val is None:
@@ -381,12 +389,24 @@ class SpinBox(QtWidgets.QSpinBox):
 			super().setValue(val)
 
 class DoubleSpinBox(QtWidgets.QDoubleSpinBox):
-	def __init__(self, parent=None):
-		QtWidgets.QDoubleSpinBox.__init__(self, parent)
-		#ClearableSpinBox.__init__(self)
+	decimals = 4
+	minimum = -2**30
+	maximum = 2**30
 
-		self.setRange(-2**30, 2**30)
-		self.setDecimals(15)
+	def __init__(self, decimals=None, minimum=None, maximum=None, parent=None):
+		super().__init__(parent)
+
+		decimals = decimals or DoubleSpinBox.decimals
+		if decimals is not None:
+			self.setDecimals(decimals)
+
+		minimum = minimum or DoubleSpinBox.minimum
+		if minimum is not None:
+			self.setMinimum(minimum)
+
+		maximum = maximum or DoubleSpinBox.maximum
+		if maximum is not None:
+			self.setMaximum(maximum)
 
 	def setValue(self, val):
 		if val is None:
