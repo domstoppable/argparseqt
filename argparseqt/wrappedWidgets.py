@@ -309,6 +309,8 @@ class ComboBox(QtWidgets.QComboBox):
 				break
 
 class SerialPortChooser(QtWidgets.QWidget):
+	portInfos = None
+
 	def __init__(self, parent=None):
 		super().__init__(parent)
 
@@ -334,18 +336,24 @@ class SerialPortChooser(QtWidgets.QWidget):
 		self.currentTextChanged = self.combobox.currentTextChanged
 		self.setFocus = self.combobox.setFocus
 
-	def getPortsAndLabels(self):
+	def getPortsAndLabels(self, reload=False):
 		deviceList = []
 		nameList = []
 
-		for portInfo in serial.tools.list_ports.comports():
+		if reload or SerialPortChooser.portInfos is None:
+			SerialPortChooser.portInfos = list(serial.tools.list_ports.comports())
+
+		for portInfo in SerialPortChooser.portInfos:
 			deviceList.append(portInfo.device)
-			nameList.append(f'{portInfo.description} ({portInfo.device})')
+			name = portInfo.description
+			if portInfo.device not in name:
+				name = f'{name} ({portInfo.device})'
+			nameList.append(name)
 
 		return deviceList, nameList
 
 	def refreshPorts(self):
-		devices, labels = self.getPortsAndLabels()
+		devices, labels = self.getPortsAndLabels(True)
 
 		self.combobox.setOptions(devices, labels)
 		self.combobox.setFocus()
