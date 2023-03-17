@@ -263,10 +263,14 @@ class FileChooser(QtWidgets.QWidget):
 		self.browseButton.clicked.connect(self._browse)
 
 		self.clear = self.textBox.clear
+		self.fileDialog = QtWidgets.QFileDialog()
 
 	def _browse(self):
-		selectedFile = QtWidgets.QFileDialog.getOpenFileName(None, 'Open file', str(self.value().parent))
-		selectedFile = selectedFile[0]
+		self.fileDialog.setDirectory(str(self.value().parent))
+		if not self.fileDialog.exec_():
+			return
+
+		selectedFile = self.fileDialog.selectedFiles()[0]
 		if selectedFile is not None and selectedFile != '':
 			selectedFile = pathlib.Path(selectedFile)
 
