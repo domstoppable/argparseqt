@@ -259,6 +259,7 @@ class FileChooser(QtWidgets.QWidget):
 		self.layout().addWidget(self.textBox)
 		self.layout().addWidget(self.browseButton)
 
+		self.textBox.textChanged.connect(lambda text: self.valueChanged.emit(pathlib.Path(text)))
 		self.browseButton.clicked.connect(self._browse)
 
 		self.clear = self.textBox.clear
