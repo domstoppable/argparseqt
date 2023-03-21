@@ -66,7 +66,7 @@ class ArgparseListWidget(QtWidgets.QWidget):
 		self.orphanGroupname = orphanGroupName
 
 		for group,arguments in self.groupedParser.items():
-			if group.title in ['positional arguments', 'optional arguments']:
+			if group.title in ['positional arguments', 'optional arguments', 'options']:
 				groupName = self.orphanGroupname
 				if self.widgetStack.count() > 0:
 					groupWidget = self.widgetStack.widget(0)

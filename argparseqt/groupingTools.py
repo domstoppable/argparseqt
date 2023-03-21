@@ -25,7 +25,7 @@ def parseIntoGroups(parser):
 	groups = {}
 
 	for group in parser._action_groups:
-		if group.title in ['positional arguments', 'optional arguments']:
+		if group.title in ['positional arguments', 'optional arguments', 'options']:
 			groupDict = groups
 		else:
 			groupName = group.title
